@@ -9,18 +9,18 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import theme from "./Theme/theme";
-import Login from "./Pages/Login";
-import Signup from "./Pages/Signup";
-import Dashboard from "./Dashboard/Dashboard";
-import Bookings from "./Dashboard/DashboardPages/Bookings";
-import GuestDetails from "./Dashboard/DashboardPages/Guestdetails";
-import Rooms from "./Dashboard/DashboardPages/Rooms";
-import AddRoom from "./Dashboard/DashboardPages/Addroom";
-import RoomDetails from "./Dashboard/DashboardPages/Roomdetails";
+import Login from "./Pages/auth/Login";
+import Signup from "./Pages/auth/Signup";
+import Dashboard from "./Pages/dashboard/Dashboard";
+import Bookings from "./Pages/bookings/Bookings";
+import BookingDetails from "./Pages/bookings/BookingDetails";
+import Rooms from "./Pages/rooms/Rooms";
+import AddRoom from "./Pages/rooms/Addroom";
+import RoomDetails from "./Pages/rooms/Roomdetails";
 import DashboardLayoutpage from "./Dashboard/Dashboadlayout/DashboardLayoutpage";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import RoomCategories from "./Dashboard/DashboardPages/RoomCategories";
-import AddEditCategory from "./Dashboard/DashboardPages/AddEditCategory";
+import RoomCategories from "./Pages/roomcategory/RoomCategories";
+import AddEditCategory from "./Pages/roomcategory/AddEditCategory";
 
 function AppContent() {
   const theme = useTheme();
@@ -51,7 +51,7 @@ function AppContent() {
 
           {/* Bookings */}
           <Route path="bookings" element={<Bookings />} />
-          <Route path="bookings/:id" element={<GuestDetails />} />
+          <Route path="bookings/:id" element={<BookingDetails />} />
 
           {/* Rooms */}
           <Route path="rooms" element={<Rooms />} />

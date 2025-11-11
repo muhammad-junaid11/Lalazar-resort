@@ -2,13 +2,13 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 const firebaseConfig = {
-  apiKey: "AIzaSyAVx0a3m4MAjcV8DJUvcNMl_Jpbmxn7A2c",
-  authDomain: "lalazarfamilyresort.firebaseapp.com",
-  projectId: "lalazarfamilyresort",
-  storageBucket: "lalazarfamilyresort.firebasestorage.app",
-  messagingSenderId: "1010663976601",
-  appId: "1:1010663976601:web:3c7b9cac69c072fbfcd208",
-  measurementId: "G-8B775V2744"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 
