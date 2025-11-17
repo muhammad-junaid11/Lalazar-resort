@@ -1,15 +1,17 @@
 import React from "react";
 import { DataGrid } from "@mui/x-data-grid";
 import { useTheme, alpha } from "@mui/material/styles";
-import { GlobalStyles } from "@mui/material";
+import { GlobalStyles, Box } from "@mui/material";
+import LoadingOverlay from "./LoadingOverlay";
 
 const Customdatagriddesktop = ({
+  loading = false,       // ✅ Pass true while data is loading
   rows,
   columns,
   onRowClick,
   pageSizeOptions = [5, 10, 20],
   defaultPageSize = 10,
-  getRowId, // ✅ optional prop for custom ID fields
+  getRowId,             // Optional: custom ID field
 }) => {
   const theme = useTheme();
 
@@ -22,7 +24,8 @@ const Customdatagriddesktop = ({
   }));
 
   return (
-    <>
+    <Box sx={{ position: "relative" }}>
+      {/* Global styles for menus */}
       <GlobalStyles
         styles={{
           ".MuiMenuItem-root:hover": {
@@ -38,6 +41,7 @@ const Customdatagriddesktop = ({
         }}
       />
 
+      {/* DataGrid */}
       <DataGrid
         rows={rows}
         columns={adjustedColumns}
@@ -46,15 +50,15 @@ const Customdatagriddesktop = ({
         pagination
         autoHeight
         pageSizeOptions={pageSizeOptions}
-        // ✅ Universal getRowId (uses custom prop or falls back safely)
         getRowId={getRowId || ((row) => row.id || Math.random().toString(36).substr(2, 9))}
+        loading={false} // disable built-in loader
         initialState={{
           pagination: { paginationModel: { pageSize: defaultPageSize, page: 0 } },
         }}
         sx={{
           borderRadius: 2,
           boxShadow: 2,
-          backgroundColor: "background.paper",
+          backgroundColor: theme.palette.background.paper,
           "& .MuiDataGrid-columnHeaders": {
             backgroundColor: theme.palette.background.default,
             borderBottom: `2px solid ${theme.palette.primary.main}`,
@@ -97,7 +101,10 @@ const Customdatagriddesktop = ({
           },
         }}
       />
-    </>
+
+      {/* Theme-matching loader overlay */}
+      {loading && <LoadingOverlay loading={loading} message="Loading data..." />}
+    </Box>
   );
 };
 

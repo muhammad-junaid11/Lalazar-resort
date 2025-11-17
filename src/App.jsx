@@ -16,8 +16,9 @@ import Bookings from "./Pages/bookings/Bookings";
 import BookingDetails from "./Pages/bookings/BookingDetails";
 import Rooms from "./Pages/rooms/Rooms";
 import AddRoom from "./Pages/rooms/Addroom";
+import Payment from "./Pages/payments/Payment";
 import RoomDetails from "./Pages/rooms/Roomdetails";
-import DashboardLayoutpage from "./Dashboard/Dashboadlayout/DashboardLayoutpage";
+import DashboardLayoutpage from "./Components/Dashboadlayout/DashboardLayoutpage";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import RoomCategories from "./Pages/roomcategory/RoomCategories";
 import AddEditCategory from "./Pages/roomcategory/AddEditCategory";
@@ -52,6 +53,7 @@ function AppContent() {
           {/* Bookings */}
           <Route path="bookings" element={<Bookings />} />
           <Route path="bookings/:id" element={<BookingDetails />} />
+          <Route path="payments" element={<Payment />} />
 
           {/* Rooms */}
           <Route path="rooms" element={<Rooms />} />

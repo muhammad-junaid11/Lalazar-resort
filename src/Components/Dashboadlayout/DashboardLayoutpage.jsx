@@ -20,6 +20,7 @@ import HomeWorkIcon from "@mui/icons-material/HomeWork";
 import HolidayVillageIcon from '@mui/icons-material/HolidayVillage';
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import BookIcon from "@mui/icons-material/Book";
+import PaymentIcon from '@mui/icons-material/Payment';
 import PeopleIcon from "@mui/icons-material/People";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { auth } from "../../FirebaseFireStore/Firebase";
@@ -46,6 +47,7 @@ const DashboardLayoutpage = () => {
   const menuItems = [
     { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
     { text: "Bookings", icon: <BookIcon />, path: "/bookings" },
+    {text:"Payments", icon:<PaymentIcon/>,path:"/payments"},
     { text: "Rooms", icon: <HolidayVillageIcon />, path: "/rooms" },
     { text: "Room Categories", icon: <HomeWorkIcon />, path: "/rooms-categories" },
     { text: "Users", icon: <PeopleIcon />, path: "/users" },

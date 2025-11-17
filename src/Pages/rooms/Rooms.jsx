@@ -5,15 +5,8 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   useTheme,
-  MenuItem,
   Grid,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  CircularProgress,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -26,6 +19,12 @@ import { db } from "../../FirebaseFireStore/Firebase";
 import Customdatagriddesktop from "../../Components/Customdatagriddesktop";
 import ConfirmDialog from "../../Components/ConfirmDialog";
 import { Link, useNavigate } from "react-router-dom";
+import StatusChip from "../../Components/StatusChip";
+
+// Import React Hook Form and your custom components
+import { useForm } from "react-hook-form";
+import Textfieldinput from "../../Components/Forms/Textfieldinput";
+import Selectinput from "../../Components/Forms/Selectinput";
 
 const roomStatuses = ["Available", "Booked", "Maintenance", "Cleaning"];
 const propertyTypes = ["Owned", "Partnered"];
@@ -36,33 +35,56 @@ const Rooms = () => {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
-  const [filterProperty, setFilterProperty] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [categories, setCategories] = useState([]); // State to hold unique categories dynamically
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmDescription, setConfirmDescription] = useState("");
   const [confirmAction, setConfirmAction] = useState(() => () => {});
 
+  // ===========================================
+  // 🔄 React Hook Form Setup
+  // ===========================================
+  const { control, watch } = useForm({
+    defaultValues: {
+      search: "",
+      category: "",
+      property: "",
+      status: "",
+    },
+  });
+
+  // Watch filter values
+  const searchQuery = watch("search");
+  const filterCategory = watch("category");
+  const filterProperty = watch("property");
+  const filterStatus = watch("status");
+
+  // Fetch Rooms Data
   useEffect(() => {
     const fetchRooms = async () => {
       setLoading(true);
       try {
-        const roomsSnap = await getDocs(collection(db, "rooms"));
-        const roomsList = roomsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const [roomsSnap, hotelsSnap, categoriesSnap] = await Promise.all([
+          getDocs(collection(db, "rooms")),
+          getDocs(collection(db, "hotel")),
+          getDocs(collection(db, "roomCategory")),
+        ]);
 
-        const hotelsSnap = await getDocs(collection(db, "hotel"));
         const hotelMap = {};
         hotelsSnap.docs.forEach((doc) => {
           hotelMap[doc.id] = doc.data().hotelName;
         });
 
-        const categoriesSnap = await getDocs(collection(db, "roomCategory"));
         const categoryMap = {};
         categoriesSnap.docs.forEach((doc) => {
-          categoryMap[doc.id] = doc.data().categoryName;
+          const categoryName = doc.data().categoryName || "Unknown Category";
+          categoryMap[doc.id] = categoryName;
         });
+        
+        // Populate the categories state for the Selectinput options
+        setCategories(Object.values(categoryMap)); 
+
+        const roomsList = roomsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
         const mergedRooms = roomsList.map((room) => ({
           ...room,
@@ -81,12 +103,6 @@ const Rooms = () => {
 
     fetchRooms();
   }, []);
-
-  const getChipStyle = (color) => ({
-    backgroundColor: color + "33",
-    color,
-    fontWeight: 600,
-  });
 
   const commonCellStyle = {
     display: "flex",
@@ -195,20 +211,7 @@ const Rooms = () => {
       flex: 1,
       headerAlign: "center",
       align: "center",
-      renderCell: (params) => {
-        const colors = {
-          Available: theme.palette.success.main,
-          Booked: theme.palette.error.main,
-          Maintenance: theme.palette.warning.main,
-          Cleaning: theme.palette.info.main,
-        };
-        const color = colors[params.value] || theme.palette.grey[500];
-        return (
-          <Box sx={commonCellStyle}>
-            <Chip label={params.value} size="small" sx={getChipStyle(color)} />
-          </Box>
-        );
-      },
+      renderCell: (params) => <StatusChip label={params.value} />,
     },
     {
       field: "actions",
@@ -265,6 +268,7 @@ const Rooms = () => {
   const handleAddRoom = () => navigate("/rooms/0/add");
   const handleRowClick = (row) => navigate(`/rooms/${row.id}`);
 
+  // Apply Filters using RHF watch variables
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
       const matchesSearch =
@@ -273,6 +277,7 @@ const Rooms = () => {
       const matchesCategory = filterCategory ? row.category === filterCategory : true;
       const matchesProperty = filterProperty ? row.propertyType === filterProperty : true;
       const matchesStatus = filterStatus ? row.status === filterStatus : true;
+      
       return matchesSearch && matchesCategory && matchesProperty && matchesStatus;
     });
   }, [rows, searchQuery, filterCategory, filterProperty, filterStatus]);
@@ -281,6 +286,8 @@ const Rooms = () => {
     <Box sx={{ flexGrow: 1, mb: 2 }}>
       <Card sx={{ borderRadius: 3, boxShadow: 3 }}>
         <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+          
+          {/* Header and Add Button */}
           <Grid container alignItems="center" justifyContent="space-between" sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
             <Grid item>
               <Button
@@ -293,98 +300,85 @@ const Rooms = () => {
                 Add Room
               </Button>
             </Grid>
+
             <Grid item>
               <Grid container spacing={1} alignItems="center">
+                
+                {/* Search Input */}
                 <Grid item>
-                  <TextField
-                    size="small"
+                  <Textfieldinput
+                    name="search"
+                    control={control}
                     placeholder="Search by Room No or Hotel Name"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    sx={{ minWidth: 220, "& .MuiInputBase-input": { padding: "6px 10px", textAlign: "left" } }}
+                    fullWidth={false}
+                    sx={{ minWidth: 220 }}
                   />
                 </Grid>
+
+                {/* Category Filter */}
                 <Grid item>
-                  <FormControl size="small" sx={{ minWidth: 180 }}>
-                    <InputLabel>Category</InputLabel>
-                    <Select
-                      value={filterCategory}
-                      label="Category"
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                      sx={{ "& .MuiSelect-select": { textAlign: "center" } }}
-                    >
-                      <MenuItem value="">All</MenuItem>
-                      {Array.from(new Set(rows.map((r) => r.category))).map((c) => (
-                        <MenuItem key={c} value={c}>
-                          {c}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Selectinput
+                    name="category"
+                    control={control}
+                    label="Category"
+                    options={[
+                        { label: "All", value: "" },
+                        ...categories.map((c) => ({ label: c, value: c })),
+                    ]}
+                    sx={{ minWidth: 180 }}
+                  />
                 </Grid>
+
+                {/* Property Type Filter */}
                 <Grid item>
-                  <FormControl size="small" sx={{ minWidth: 180 }}>
-                    <InputLabel>Type</InputLabel>
-                    <Select
-                      value={filterProperty}
-                      label="Type"
-                      onChange={(e) => setFilterProperty(e.target.value)}
-                      sx={{ "& .MuiSelect-select": { textAlign: "center" } }}
-                    >
-                      <MenuItem value="">All</MenuItem>
-                      {propertyTypes.map((p) => (
-                        <MenuItem key={p} value={p}>
-                          {p}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Selectinput
+                    name="property"
+                    control={control}
+                    label="Type"
+                    options={[
+                        { label: "All", value: "" },
+                        ...propertyTypes.map((p) => ({ label: p, value: p })),
+                    ]}
+                    sx={{ minWidth: 180 }}
+                  />
                 </Grid>
+                
+                {/* Status Filter */}
                 <Grid item>
-                  <FormControl size="small" sx={{ minWidth: 180 }}>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      value={filterStatus}
-                      label="Status"
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      sx={{ "& .MuiSelect-select": { textAlign: "center" } }}
-                    >
-                      <MenuItem value="">All</MenuItem>
-                      {roomStatuses.map((s) => (
-                        <MenuItem key={s} value={s}>
-                          {s}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Selectinput
+                    name="status"
+                    control={control}
+                    label="Status"
+                    options={[
+                        { label: "All", value: "" },
+                        ...roomStatuses.map((s) => ({ label: s, value: s })),
+                    ]}
+                    sx={{ minWidth: 180 }}
+                  />
                 </Grid>
               </Grid>
             </Grid>
+            
           </Grid>
 
-          {loading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <Customdatagriddesktop
-              rows={filteredRows}
-              columns={columns}
-              getRowId={(row) => row.id}
-              autoHeight
-              pageSize={10}
-              rowsPerPageOptions={[10]}
-              onRowClick={(params) => handleRowClick(params.row)}
-              sx={{
-                "& .MuiDataGrid-columnHeaders": {
-                  backgroundColor: theme.palette.background.paper,
-                },
-                "& .MuiDataGrid-cell": {
-                  borderBottom: "1px solid #e0e0e0",
-                },
-              }}
-            />
-          )}
+          <Customdatagriddesktop
+            rows={filteredRows}
+            columns={columns}
+            getRowId={(row) => row.id}
+            autoHeight
+            pageSize={10}
+            rowsPerPageOptions={[10]}
+            onRowClick={(params) => handleRowClick(params.row)}
+            loading={loading}
+            sx={{
+              "& .MuiDataGrid-columnHeaders": {
+                backgroundColor: theme.palette.background.paper,
+              },
+              "& .MuiDataGrid-cell": {
+                borderBottom: "1px solid #e0e0e0",
+              },
+            }}
+          />
         </CardContent>
       </Card>
 

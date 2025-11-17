@@ -6,9 +6,8 @@ import {
   Card,
   CardContent,
   Chip,
-  Stack,
+  Grid,
   useTheme,
-  CircularProgress,
 } from "@mui/material";
 import { useParams } from "react-router-dom";
 import {
@@ -26,6 +25,9 @@ import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import enUS from "date-fns/locale/en-US";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import KeyValueBlock from "../../Components/KeyValueBlock";
+import HeaderSection from "../../Components/HeaderSection";
+import LoadingOverlay from "../../Components/LoadingOverlay";
 
 const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({
@@ -54,7 +56,6 @@ const RoomDetails = () => {
 
         if (!roomSnap.exists()) {
           setRoom(null);
-          setLoading(false);
           return;
         }
 
@@ -86,7 +87,7 @@ const RoomDetails = () => {
 
         const bookingQuery = query(
           collection(db, "bookings"),
-          where("roomId", "==", roomId),
+          where("roomId", "array-contains", roomId),
           where("status", "==", "confirmed")
         );
         const bookingSnap = await getDocs(bookingQuery);
@@ -111,8 +112,7 @@ const RoomDetails = () => {
 
           usersSnap.docs.forEach((doc) => {
             const userData = doc.data();
-            userMap[doc.id] =
-              userData.userName || userData.fullName || "Guest";
+            userMap[doc.id] = userData.userName || userData.fullName || "Guest";
           });
         }
 
@@ -123,10 +123,7 @@ const RoomDetails = () => {
             if (!checkIn || !checkOut) return null;
 
             const userName = userMap[d.userId] || "Guest";
-            const title = `Booking #${d.bookingId || d.id.substring(
-              0,
-              4
-            )} by ${userName}`;
+            const title = `Booking by ${userName}`;
 
             return {
               id: d.id,
@@ -171,191 +168,141 @@ const RoomDetails = () => {
     );
   };
 
-  const KeyValueBlock = ({ label, value }) => (
-    <Box sx={{ flexBasis: { xs: "100%", sm: "30%" } }}>
-      <Typography
-        variant="body2"
-        sx={{ color: theme.palette.text.secondary, fontWeight: 600 }}
-      >
-        {label}
-      </Typography>
-      <Typography variant="body1" sx={{ mt: 0.5, fontWeight: "bold" }}>
-        {value || "--"}
-      </Typography>
-    </Box>
-  );
-
-  const Row = ({ children }) => (
-    <Box
-      sx={{
-        display: "flex",
-        flexWrap: "wrap",
-        justifyContent: "space-between",
-        gap: 5,
-      }}
-    >
-      {children}
-    </Box>
-  );
-
-  const SectionHeader = ({ title }) => (
-    <Box
-      sx={{
-        backgroundColor: "#F0F9F8",
-        px: 2,
-        py: 1,
-        borderRadius: 1,
-        mb: 2,
-        mt: 3,
-      }}
-    >
-      <Typography
-        variant="subtitle1"
-        sx={{ fontWeight: "bold", color: theme.palette.primary.main }}
-      >
-        {title}
-      </Typography>
-    </Box>
-  );
-
-  if (loading)
-    return (
-      <Box
-        sx={{
-          height: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <CircularProgress size={40} />
-        <Typography sx={{ mt: 2 }}>Loading room details...</Typography>
-      </Box>
-    );
-
-  if (!room)
-    return (
-      <Typography
-        variant="h6"
-        sx={{ textAlign: "center", mt: 5, color: "text.secondary" }}
-      >
-        Room not found
-      </Typography>
-    );
-
   return (
-    <Box sx={{ flexGrow: 1, mt: 0, mb: 0, py: 1 }}>
-      <Card sx={{ borderRadius: 3, boxShadow: 4, mb: 4 }}>
-        <CardContent sx={{ px: { xs: 2, sm: 4, md: 6 } }}>
-          <Box
-            sx={{
-              mb: 3,
-              display: "flex",
-              alignItems: { xs: "flex-start", sm: "center" },
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: 2,
-            }}
+    <Box sx={{ flexGrow: 1, mt: 0, mb: 0, py: 1, position: "relative" }}>
+      {/* Loading overlay */}
+      <LoadingOverlay
+        loading={loading}
+        message="Loading room details..."
+        fullScreen={true}
+      />
+
+      {room ? (
+        <Card sx={{ borderRadius: 3, boxShadow: 4, mb: 4 }}>
+          <CardContent
+            sx={{ px: { xs: 2, sm: 4, md: 6 }, position: "relative" }}
           >
-            <Typography
-              variant="h5"
-              sx={{ fontWeight: "bold", color: theme.palette.primary.main }}
-            >
-              Room Details: #{room.roomNumber}
-            </Typography>
-            <StatusChip label={room.status} />
-          </Box>
-
-          <SectionHeader title="Room Overview" />
-          <Stack spacing={5}>
-            <Row>
-              <KeyValueBlock label="Room Number" value={room.roomNumber} />
-              <KeyValueBlock label="Hotel Name" value={room.hotelName} />
-              <KeyValueBlock label="Category" value={room.category} />
-            </Row>
-            <Row>
-              <KeyValueBlock label="Price (PKR)" value={room.price} />
-              <KeyValueBlock label="Property Type" value={room.propertyType} />
-              <KeyValueBlock label="Current Status" value={room.status} />
-            </Row>
-          </Stack>
-
-          <SectionHeader title="Room Booking Calendar" />
-          <Box
-            sx={{
-              height: 600,
-              mt: 2,
-              position: "relative",
-              backgroundColor: theme.palette.background.paper,
-              borderRadius: 2,
-              overflow: "hidden",
-
-              // ✅ Toolbar styling fix
-              "& .rbc-toolbar": {
-                backgroundColor: theme.palette.primary.main,
-                color: theme.palette.common.white,
-                borderRadius: 1,
-                mb: 1,
+            <Box
+              sx={{
+                mb: 3,
                 display: "flex",
+                alignItems: { xs: "flex-start", sm: "center" },
                 justifyContent: "space-between",
                 flexWrap: "wrap",
-              },
-              "& .rbc-toolbar button": {
-                color: theme.palette.common.white,
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                transition: "all 0.2s",
-                "&:hover": {
+                gap: 2,
+              }}
+            >
+              <Typography
+                variant="h5"
+                sx={{ fontWeight: "bold", color: theme.palette.primary.main }}
+              >
+                Room Details: #{room.roomNumber}
+              </Typography>
+              <StatusChip label={room.status} />
+            </Box>
+
+            <HeaderSection title="Room Overview" />
+            <Grid container sx={{ px: 0.5 }} spacing={2}>
+              <Grid size={{ xs: 12, md: 6, lg: 4 }}>
+                <KeyValueBlock label="Room Number" value={room.roomNumber} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6, lg: 4 }}>
+                <KeyValueBlock label="Hotel Name" value={room.hotelName} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6, lg: 4 }}>
+                <KeyValueBlock label="Category" value={room.category} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6, lg: 4 }}>
+                <KeyValueBlock label="Price (PKR)" value={room.price} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6, lg: 4 }}>
+                <KeyValueBlock
+                  label="Property Type"
+                  value={room.propertyType}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6, lg: 4 }}>
+                <KeyValueBlock label="Current Status" value={room.status} />
+              </Grid>
+            </Grid>
+
+            <HeaderSection title="Room Booking Calendar" />
+            <Box
+              sx={{
+                height: 600,
+                mt: 2,
+                position: "relative",
+                backgroundColor: theme.palette.background.paper,
+                borderRadius: 2,
+                overflow: "hidden",
+                "& .rbc-toolbar": {
+                  backgroundColor: theme.palette.primary.main,
+                  color: theme.palette.common.white,
+                  borderRadius: 1,
+                  mb: 1,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                },
+                "& .rbc-toolbar button": {
+                  color: theme.palette.common.white,
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  "&:hover": {
+                    backgroundColor: theme.palette.grey[300],
+                    color: theme.palette.primary.main,
+                  },
+                },
+                "& .rbc-toolbar .rbc-active": {
                   backgroundColor: theme.palette.grey[300],
                   color: theme.palette.primary.main,
+                  fontWeight: "bold",
                 },
-              },
-              "& .rbc-toolbar .rbc-active": {
-                backgroundColor: theme.palette.grey[300],
-                color: theme.palette.primary.main,
-                fontWeight: "bold",
-              },
-              // ✅ Make left buttons (Today, Back, Next) interactive
-              "& .rbc-btn-group:first-of-type button:hover": {
-                backgroundColor: theme.palette.grey[300],
-                color: theme.palette.primary.main,
-              },
-
-              "& .rbc-event": {
-                backgroundColor: theme.palette.primary.main,
-                color: "white",
-                borderRadius: "6px",
-                border: "none",
-                fontWeight: 500,
-                padding: "2px 4px",
-              },
-              "& .rbc-today": {
-                backgroundColor: theme.palette.action.hover,
-              },
-            }}
-          >
-            <Calendar
-              localizer={localizer}
-              events={bookings}
-              startAccessor="start"
-              endAccessor="end"
-              titleAccessor="title"
-              views={["month", "week", "day", "agenda"]}
-              popup
-              date={currentDate}
-              view={currentView}
-              onNavigate={(date) => setCurrentDate(date)}
-              onView={(view) => setCurrentView(view)}
-              style={{ height: "100%" }}
-              messages={{
-                noEventsInRange: "No confirmed bookings for this room",
+                "& .rbc-event": {
+                  backgroundColor: theme.palette.primary.main,
+                  color: "white",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontWeight: 500,
+                  padding: "2px 4px",
+                },
+                "& .rbc-today": {
+                  backgroundColor: theme.palette.action.hover,
+                },
               }}
-            />
-          </Box>
-        </CardContent>
-      </Card>
+            >
+              <Calendar
+                localizer={localizer}
+                events={bookings}
+                startAccessor="start"
+                endAccessor="end"
+                titleAccessor="title"
+                views={["month", "week", "day", "agenda"]}
+                popup
+                date={currentDate}
+                view={currentView}
+                onNavigate={(date) => setCurrentDate(date)}
+                onView={(view) => setCurrentView(view)}
+                style={{ height: "100%" }}
+                messages={{
+                  noEventsInRange: "No confirmed bookings for this room",
+                }}
+              />
+            </Box>
+          </CardContent>
+        </Card>
+      ) : (
+        !loading && (
+          <Typography
+            variant="h6"
+            sx={{ textAlign: "center", mt: 5, color: "text.secondary" }}
+          >
+            Room not found
+          </Typography>
+        )
+      )}
     </Box>
   );
 };

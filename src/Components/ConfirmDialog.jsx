@@ -1,7 +1,7 @@
 import React from "react";
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from "@mui/material";
 
-const ConfirmDialog = ({ open, onClose, title, description, onConfirm, confirmText = "Yes", cancelText = "No" }) => {
+const ConfirmDialog = ({ open, onClose, title, description, onConfirm, confirmText = "Yes", cancelText = "No", color = "error" }) => {
   return (
     <Dialog open={open} onClose={() => onClose(false)} maxWidth="xs" fullWidth>
       {title && <DialogTitle>{title}</DialogTitle>}
@@ -18,7 +18,7 @@ const ConfirmDialog = ({ open, onClose, title, description, onConfirm, confirmTe
             onClose(false);
           }}
           variant="contained"
-          color="error"
+          color={color}
         >
           {confirmText}
         </Button>

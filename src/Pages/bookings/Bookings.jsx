@@ -6,28 +6,26 @@ import {
   CardContent,
   Typography,
   useTheme,
-  Chip,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  TextField,
-  CircularProgress,
   Button,
 } from "@mui/material";
 import { Link } from "react-router-dom";
 import { auth, db } from "../../FirebaseFireStore/Firebase";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+
 import Customdatagriddesktop from "../../Components/Customdatagriddesktop";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import HotelIcon from "@mui/icons-material/Hotel";
 import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
 import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import StatusChip from "../../Components/StatusChip";
+
+import { useForm } from "react-hook-form";
+import Textfieldinput from "../../Components/Forms/Textfieldinput";
+import Selectinput from "../../Components/Forms/Selectinput";
 
 const statuses = ["New", "Pending", "Confirmed", "Checked Out", "Cancelled"];
-
 
 const stats = [
   { label: "Active Bookings", value: "85%", change: "+5%", icon: <HotelIcon sx={{ fontSize: 32, color: "#fff" }} /> },
@@ -48,16 +46,27 @@ const formatDate = (val) => {
 
 const Bookings = () => {
   const [adminName, setAdminName] = useState("Admin");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
   const [bookings, setBookings] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const theme = useTheme();
 
-  // Fetch admin name
+  // ===========================================
+  // React Hook Form Setup
+  // ===========================================
+  const { control, watch } = useForm({
+    defaultValues: {
+      search: "",
+      status: "",
+      category: "",
+    },
+  });
+
+  const searchQuery = watch("search");
+  const filterStatus = watch("status");
+  const filterCategory = watch("category");
+
+  // Fetch Admin Name
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -73,7 +82,7 @@ const Bookings = () => {
     return () => unsubscribe();
   }, []);
 
-  // Fetch bookings data
+  // Fetch all booking-related data
   useEffect(() => {
     const fetchBookings = async () => {
       setLoading(true);
@@ -93,7 +102,7 @@ const Bookings = () => {
         setCategories(Object.values(categoryMap));
 
         const roomMap = {};
-        roomsSnap.docs.forEach(doc => {
+        roomsSnap.docs.forEach((doc) => {
           const data = doc.data();
           roomMap[doc.id] = {
             roomNo: data.roomNo || "N/A",
@@ -102,7 +111,7 @@ const Bookings = () => {
         });
 
         const userMap = {};
-        usersSnap.docs.forEach(doc => {
+        usersSnap.docs.forEach((doc) => {
           const data = doc.data();
           userMap[doc.id] = {
             userName: data.userName || data.fullName || "Unknown User",
@@ -111,7 +120,7 @@ const Bookings = () => {
         });
 
         const paymentMap = {};
-        paymentSnap.docs.forEach(doc => {
+        paymentSnap.docs.forEach((doc) => {
           const data = doc.data();
           if (data.bookingId)
             paymentMap[data.bookingId] = {
@@ -119,7 +128,7 @@ const Bookings = () => {
             };
         });
 
-        const mergedBookings = bookingSnap.docs.map(docSnap => {
+        const mergedBookings = bookingSnap.docs.map((docSnap) => {
           const data = docSnap.data();
           const userData = userMap[data.userId] || {};
           const paymentData = paymentMap[docSnap.id] || paymentMap[data.bookingId] || {};
@@ -128,7 +137,7 @@ const Bookings = () => {
           let categoriesList = [];
 
           if (Array.isArray(data.roomId)) {
-            data.roomId.forEach(rid => {
+            data.roomId.forEach((rid) => {
               if (roomMap[rid]) {
                 roomNumbers.push(roomMap[rid].roomNo);
                 categoriesList.push(roomMap[rid].categoryName);
@@ -161,15 +170,11 @@ const Bookings = () => {
         setLoading(false);
       }
     };
+
     fetchBookings();
   }, []);
 
-  const getChipStyle = (color) => ({
-    backgroundColor: color + "33",
-    color: color,
-    fontWeight: 600,
-  });
-
+  // Table Columns
   const columns = [
     { field: "userName", headerName: "Guest Name", flex: 1 },
     { field: "email", headerName: "Email", flex: 1 },
@@ -191,30 +196,13 @@ const Bookings = () => {
       field: "bookingStatus",
       headerName: "Booking Status",
       flex: 1,
-      renderCell: (params) => {
-        const colors = {
-          New: theme.palette.primary.main,
-          Pending: theme.palette.warning.main,
-          Confirmed: theme.palette.success.main,
-          "Checked Out": theme.palette.info.main,
-          Cancelled: theme.palette.error.main,
-        };
-        return <Chip label={params.value} size="small" sx={getChipStyle(colors[params.value] || theme.palette.grey[500])} />;
-      },
+      renderCell: (params) => <StatusChip label={params.value} />,
     },
     {
       field: "paymentStatus",
       headerName: "Payment Status",
       flex: 1,
-      renderCell: (params) => {
-        const colors = {
-          Paid: theme.palette.success.main,
-          Pending: theme.palette.warning.main,
-          Refunded: theme.palette.info.main,
-          Failed: theme.palette.error.main,
-        };
-        return <Chip label={params.value} size="small" sx={getChipStyle(colors[params.value] || theme.palette.grey[600])} />;
-      },
+      renderCell: (params) => <StatusChip label={params.value} />,
     },
     {
       field: "actions",
@@ -225,22 +213,14 @@ const Bookings = () => {
       align: "center",
       headerAlign: "center",
       renderCell: (params) => (
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "100%",
-            height: "100%",
-          }}
-        >
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
           <Button
             component={Link}
             to={`/bookings/${params.row.id}`}
             size="small"
             color="info"
             variant="outlined"
-            sx={{ minWidth: "auto", p: 0.5, display: "flex", alignItems: "center", justifyContent: "center" }}
+            sx={{ minWidth: "auto", p: 0.5 }}
             onClick={(e) => e.stopPropagation()}
           >
             <VisibilityIcon fontSize="small" />
@@ -250,6 +230,7 @@ const Bookings = () => {
     },
   ];
 
+  // Apply Filters
   const filteredRows = useMemo(() => {
     return bookings.filter((row) => {
       const matchesSearch =
@@ -257,8 +238,10 @@ const Bookings = () => {
         row.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         row.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         row.roomNumber?.toString().includes(searchQuery.toLowerCase());
+
       const matchesStatus = filterStatus ? row.bookingStatus === filterStatus : true;
       const matchesCategory = filterCategory ? row.category === filterCategory : true;
+
       return matchesSearch && matchesStatus && matchesCategory;
     });
   }, [bookings, searchQuery, filterStatus, filterCategory]);
@@ -269,15 +252,49 @@ const Bookings = () => {
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {stats.map((s) => (
           <Grid item xs={12} sm={6} md={3} key={s.label}>
-            <Card sx={{ backgroundColor: theme.palette.primary.main, color: theme.palette.primary.contrastText, borderRadius: 3, boxShadow: 3 }}>
-              <CardContent sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", p: 3 }}>
-                <Box sx={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: "50%", width: 64, height: 64, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Card
+              sx={{
+                backgroundColor: theme.palette.primary.main,
+                color: theme.palette.primary.contrastText,
+                borderRadius: 3,
+                boxShadow: 3,
+              }}
+            >
+              <CardContent
+                sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", p: 3 }}
+              >
+                <Box
+                  sx={{
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    borderRadius: "50%",
+                    width: 64,
+                    height: 64,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
                   {s.icon}
                 </Box>
+
                 <Box sx={{ textAlign: "right", flex: 1, ml: 2 }}>
-                  <Typography variant="body2" sx={{ opacity: 0.9 }}>{s.label}</Typography>
-                  <Typography variant="h5" sx={{ fontWeight: "bold", lineHeight: 1.2 }}>{s.value}</Typography>
-                  <Typography variant="body2" sx={{ color: s.change.startsWith("+") ? theme.palette.success.light : theme.palette.error.light, fontWeight: 500 }}>{s.change}</Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    {s.label}
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: "bold", lineHeight: 1.2 }}>
+                    {s.value}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: s.change.startsWith("+")
+                        ? theme.palette.success.light
+                        : theme.palette.error.light,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {s.change}
+                  </Typography>
                 </Box>
               </CardContent>
             </Card>
@@ -285,40 +302,66 @@ const Bookings = () => {
         ))}
       </Grid>
 
-      {/* Filters and Table */}
-      <Box sx={{ boxShadow: 3, borderRadius: 3, p: 3, position: "relative" }}>
-        <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, justifyContent: "flex-end", alignItems: { xs: "flex-start", sm: "center" }, gap: 2, mb: 3, flexWrap: "wrap" }}>
-          <TextField size="small" label="Search" placeholder="Search by Name, Room No or Email" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} sx={{ minWidth: { xs: "100%", sm: 220 } }} />
-          <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 180 } }}>
-            <InputLabel>Status</InputLabel>
-            <Select value={filterStatus} label="Status" onChange={(e) => setFilterStatus(e.target.value)}>
-              <MenuItem value="">All</MenuItem>
-              {statuses.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 180 } }}>
-            <InputLabel>Category</InputLabel>
-            <Select value={filterCategory} label="Category" onChange={(e) => setFilterCategory(e.target.value)}>
-              <MenuItem value="">All</MenuItem>
-              {categories.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-            </Select>
-          </FormControl>
+      {/* Filters + Table */}
+      <Box sx={{ boxShadow: 3, borderRadius: 3, p: 3 }}>
+        {/* FILTERS */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            justifyContent: "flex-end",
+            alignItems: { xs: "flex-start", sm: "center" },
+            gap: 2,
+            mb: 3,
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Search Input */}
+          <Textfieldinput
+            name="search"
+            control={control}
+            label="Search"
+            placeholder="Search by Name, Room No or Email"
+            fullWidth={false}
+            sx={{ minWidth: { xs: "100%", sm: 220 } }}
+          />
+
+          {/* Status Filter */}
+          <Selectinput
+            name="status"
+            control={control}
+            label="Status"
+            options={[
+              { label: "All", value: "" },
+              ...statuses.map((s) => ({ label: s, value: s })),
+            ]}
+            sx={{ minWidth: { xs: "100%", sm: 180 } }}
+          />
+
+          {/* Category Filter */}
+          <Selectinput
+            name="category"
+            control={control}
+            label="Category"
+            options={[
+              { label: "All", value: "" },
+              ...categories.map((c) => ({ label: c, value: c })),
+            ]}
+            sx={{ minWidth: { xs: "100%", sm: 180 } }}
+          />
         </Box>
 
-        <Customdatagriddesktop
-          rows={filteredRows}
-          columns={columns}
-          pageSizeOptions={[5, 10, 20]}
-          defaultPageSize={10}
-          getRowId={(row) => row.id}
-        />
-
-        {loading && (
-          <Box sx={{ position: "absolute", inset: 0, backgroundColor: "rgba(255,255,255,0.6)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-            <CircularProgress />
-            <Typography sx={{ mt: 2 }}>Loading data...</Typography>
-          </Box>
-        )}
+        {/* TABLE */}
+        <Box sx={{ position: "relative" }}>
+          <Customdatagriddesktop
+            rows={filteredRows}
+            columns={columns}
+            pageSizeOptions={[5, 10, 20]}
+            defaultPageSize={10}
+            getRowId={(row) => row.id}
+            loading={loading}
+          />
+        </Box>
       </Box>
     </Box>
   );

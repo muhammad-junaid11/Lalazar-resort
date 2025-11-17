@@ -9,8 +9,12 @@ import {
   CircularProgress,
   useTheme,
   Button,
-  Modal,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 import { useParams } from "react-router-dom";
@@ -26,6 +30,10 @@ import {
 import { db } from "../../FirebaseFireStore/Firebase";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import ConfirmDialog from "../../Components/ConfirmDialog";
+import KeyValueBlock from "../../Components/KeyValueBlock";
+import HeaderSection from "../../Components/HeaderSection";
+import LoadingOverlay from "../../Components/LoadingOverlay";
 
 const BookingDetails = () => {
   const { id } = useParams();
@@ -33,8 +41,13 @@ const BookingDetails = () => {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalImage, setModalImage] = useState("");
+
+  // ConfirmDialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogAction, setDialogAction] = useState(null);
+
+  // Receipt Dialog state
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
 
   const parseTimestamp = (value) => {
     if (!value) return null;
@@ -80,10 +93,10 @@ const BookingDetails = () => {
       let userData = {};
       if (bookingData.userId) {
         const userSnap = await getDoc(doc(db, "users", bookingData.userId));
-        if (userSnap.exists()) userData = userSnap.data();
+        if (userSnap.exists) userData = userSnap.data();
       }
 
-      // Fetch payment info
+      // 🚨 UPDATED PAYMENT INFO FETCHING 🚨
       const paymentRef = collection(db, "payment");
       const paymentQuery = query(
         paymentRef,
@@ -96,31 +109,50 @@ const BookingDetails = () => {
       let paymentMethod = bookingData.paymentMethod || "--";
       let paymentStatus = "Pending";
       let paymentId = "--";
+      let paymentReceiptUrl = ""; // Will capture the receiptPath if found
 
       if (!paymentSnap.empty) {
+        let latestPaymentTimestamp = 0;
+        let latestPaymentData = null;
+
         paymentSnap.docs.forEach((payDoc) => {
           const payData = payDoc.data();
+
+          // 1. Calculate total amount
           totalAmount += Number(
             (payData.amount || "0").toString().replace(/[^0-9.]/g, "")
           );
+
+          // 2. Capture the receipt path (prioritize existence over time)
+          if (payData.receiptPath) {
+            paymentReceiptUrl = payData.receiptPath;
+          }
+
+          // 3. Track the LATEST payment for status and date display
+          const paymentTimestamp = payData.paymentDate?.seconds || 0;
+          if (paymentTimestamp >= latestPaymentTimestamp) {
+            latestPaymentTimestamp = paymentTimestamp;
+            latestPaymentData = payData;
+            paymentId = payDoc.id;
+          }
         });
 
-        const latestPaymentDoc = paymentSnap.docs[paymentSnap.docs.length - 1];
-        const latestPaymentData = latestPaymentDoc.data();
-        paymentId = latestPaymentDoc.id;
-        paymentMethod = latestPaymentData.paymentType || paymentMethod;
-        paymentStatus = latestPaymentData.status
-          ? latestPaymentData.status.charAt(0).toUpperCase() +
-            latestPaymentData.status.slice(1)
-          : "Pending";
-        paymentDate = latestPaymentData.paymentDate
-          ? formatDateTime(latestPaymentData.paymentDate)
-          : "--";
+        // Use the data from the latest payment for status and date
+        if (latestPaymentData) {
+          paymentMethod = latestPaymentData.paymentType || paymentMethod;
+          paymentStatus = latestPaymentData.status
+            ? latestPaymentData.status.charAt(0).toUpperCase() +
+              latestPaymentData.status.slice(1)
+            : "Pending";
+          paymentDate = latestPaymentData.paymentDate
+            ? formatDateTime(latestPaymentData.paymentDate)
+            : "--";
+        }
       }
+      // 🚨 END UPDATED PAYMENT INFO FETCHING 🚨
 
-      // Fetch rooms, categories, hotels
+      // Rooms info
       let roomsDetails = [];
-
       if (Array.isArray(bookingData.roomId) && bookingData.roomId.length > 0) {
         const roomPromises = bookingData.roomId.map(async (roomId) => {
           const roomSnap = await getDoc(doc(db, "rooms", roomId));
@@ -172,7 +204,7 @@ const BookingDetails = () => {
         paymentMethod,
         paymentStatus,
         paymentDate,
-        paymentReceipt: bookingData.paymentReceipt || "",
+        paymentReceipt: paymentReceiptUrl,
         persons: bookingData.persons || "--",
         checkIn: formatDateTime(bookingData.checkInDate),
         checkOut: formatDateTime(bookingData.checkOutDate),
@@ -243,65 +275,17 @@ const BookingDetails = () => {
     );
   };
 
-  const KeyValueBlock = ({ label, value }) => (
-    <Box sx={{ flexBasis: { xs: "100%", sm: "30%" } }}>
-      <Typography
-        variant="body2"
-        sx={{ color: theme.palette.text.secondary, fontWeight: 600 }}
-      >
-        {label}
-      </Typography>
-      <Typography variant="body1" sx={{ mt: 0.5, fontWeight: "bold" }}>
-        {value || "--"}
-      </Typography>
-    </Box>
-  );
 
-  const SectionHeader = ({ title }) => (
-    <Box
-      sx={{
-        backgroundColor: "#F0F9F8",
-        px: 2,
-        py: 1,
-        borderRadius: 1,
-        mb: 2,
-        mt: 3,
-      }}
-    >
-      <Typography
-        variant="subtitle1"
-        sx={{ fontWeight: "bold", color: theme.palette.primary.main }}
-      >
-        {title}
-      </Typography>
-    </Box>
-  );
 
-  const handleImageClick = (src) => {
-    setModalImage(src);
-    setModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setModalOpen(false);
-    setModalImage("");
-  };
 
   if (loading)
-    return (
-      <Box
-        sx={{
-          height: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <CircularProgress size={40} />
-        <Typography sx={{ mt: 2 }}>Loading booking details...</Typography>
-      </Box>
-    );
+  return (
+    <LoadingOverlay
+      loading={loading}
+      message="Loading booking details..."
+      fullScreen
+    />
+  );
 
   if (!booking)
     return (
@@ -316,6 +300,7 @@ const BookingDetails = () => {
   return (
     <Box sx={{ flexGrow: 1, mt: 0, mb: 0, py: 1 }}>
       <ToastContainer position="top-right" autoClose={3000} />
+
       <Card sx={{ borderRadius: 3, boxShadow: 4, mb: 4 }}>
         <CardContent sx={{ px: { xs: 2, sm: 4, md: 6 } }}>
           {/* Booking Status */}
@@ -355,13 +340,16 @@ const BookingDetails = () => {
             </Stack>
           </Box>
 
-          {/* Accept/Reject Buttons */}
+          {/* Accept / Reject Buttons */}
           <Box sx={{ mb: 3, display: "flex", gap: 2 }}>
             <Button
               variant="contained"
-              color="success"
+              color="primary"
               disabled={updatingStatus || booking.bookingStatus === "Confirmed"}
-              onClick={() => handleStatusUpdate("Confirmed")}
+              onClick={() => {
+                setDialogAction("Confirmed");
+                setDialogOpen(true);
+              }}
             >
               Accept
             </Button>
@@ -373,164 +361,178 @@ const BookingDetails = () => {
                 booking.bookingStatus === "Rejected" ||
                 booking.bookingStatus === "Confirmed"
               }
-              onClick={() => handleStatusUpdate("Rejected")}
+              onClick={() => {
+                setDialogAction("Rejected");
+                setDialogOpen(true);
+              }}
             >
               Reject
             </Button>
           </Box>
 
-          {/* Guest Info */}
-          <SectionHeader title="Guest Information" />
-          <Stack spacing={5}>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+          <HeaderSection title="Guest Information" />
+          <Grid container sx={{ px: 0.5 }} spacing={2}>
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock label="Guest Name" value={booking.userName} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
+              <KeyValueBlock label="Guest Name" value={booking.userName} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock label="Gender" value={booking.gender} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock label="Date of Birth" value={booking.dob} />
-            </Box>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock label="Phone No" value={booking.number} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock label="Email" value={booking.email} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock label="Address" value={booking.address} />
-            </Box>
-          </Stack>
+            </Grid>
+          </Grid>
 
           {/* Rooms Info */}
-          <SectionHeader title="Rooms Information" />
+          <HeaderSection title="Rooms Information" />
           <Box
-  sx={{
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 3,
-    justifyContent: "flex-start",
-  }}
->
-  {booking.roomsDetails.map((room, idx) => (
-    <Card
-      key={idx}
-      sx={{
-        width: 250,       // fixed width
-        height: 150,      // fixed height
-        p: 2,
-        borderRadius: 2,
-        boxShadow: 3,     // uses theme shadow
-        backgroundColor: "transparent", // remove bg
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-      }}
-    >
-      <Typography
-        variant="subtitle1"
-        sx={{ fontWeight: "bold", mb: 1 }}
-      >
-        Room {idx + 1}
-      </Typography>
-      <Typography>Room Number: {room.roomNo}</Typography>
-      <Typography>Category: {room.category}</Typography>
-      <Typography>Hotel: {room.hotel}</Typography>
-    </Card>
-  ))}
-</Box>
-
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 3,
+              justifyContent: "flex-start",
+            }}
+          >
+            {booking.roomsDetails.map((room, idx) => (
+              <Card
+                key={idx}
+                sx={{
+                  width: 250,
+                  height: 150,
+                  p: 2,
+                  backgroundColor: theme.palette.background.paper,
+                  borderRadius: 2,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  transition: "transform 0.2s, box-shadow 0.2s",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    boxShadow: 1,
+                  },
+                }}
+              >
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: "bold", mb: 1 }}
+                >
+                  Room {idx + 1}
+                </Typography>
+                <Typography>Room Number: {room.roomNo}</Typography>
+                <Typography>Category: {room.category}</Typography>
+                <Typography>Hotel: {room.hotel}</Typography>
+              </Card>
+            ))}
+          </Box>
 
           {/* Reservation & Payment Details */}
-          <SectionHeader title="Reservation & Payment Details" />
-          <Stack spacing={3}>
-            <Box
-              sx={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 5,
-                alignItems: "center",
-              }}
-            >
+          <HeaderSection title="Reservation & Payment Details" />
+          <Grid container sx={{ px: 0.5 }} spacing={2}>
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock label="Guests" value={booking.persons} />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock label="Check-In" value={booking.checkIn} />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock label="Check-Out" value={booking.checkOut} />
-            </Box>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock label="Total Amount" value={booking.totalAmount} />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock
                 label="Payment Method"
                 value={booking.paymentMethod}
               />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
               <KeyValueBlock label="Payment Date" value={booking.paymentDate} />
-              {booking.paymentReceipt && (
-                <Box sx={{ flexBasis: { xs: "100%", sm: "30%" } }}>
-                  <Typography
-                    variant="body2"
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6, lg: 4 }}>
+              <KeyValueBlock label="Payment Receipt">
+                {booking.paymentReceipt && (
+                  <Button
+                    variant="contained"
+                    color="primary"
                     sx={{
-                      color: theme.palette.text.secondary,
-                      fontWeight: 600,
+                      mt: 1,
+                      px: 2,
+                      maxWidth: 180,
+                      minWidth: 100,
+                      textTransform: "none",
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      textOverflow: "ellipsis",
                     }}
+                    onClick={() => setReceiptDialogOpen(true)}
                   >
-                    Receipt
-                  </Typography>
-                  <Box
-                    component="img"
-                    src={booking.paymentReceipt}
-                    alt="Payment Receipt"
-                    sx={{
-                      width: 200,
-                      height: 150,
-                      objectFit: "contain",
-                      border: "none",
-                      cursor: "pointer",
-                      mt: 0.5,
-                    }}
-                    onClick={() => handleImageClick(booking.paymentReceipt)}
-                  />
-                </Box>
-              )}
-            </Box>
-          </Stack>
+                    Show Receipt
+                  </Button>
+                )}
+              </KeyValueBlock>
+            </Grid>
+          </Grid>
         </CardContent>
       </Card>
 
-      {/* Modal for Image */}
-      <Modal
-        open={modalOpen}
-        onClose={handleCloseModal}
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title={
+          dialogAction === "Confirmed" ? "Confirm Booking" : "Reject Booking"
+        }
+        description={
+          dialogAction === "Confirmed"
+            ? "Are you sure you want to accept this booking?"
+            : "Are you sure you want to reject this booking?"
+        }
+        onConfirm={() => handleStatusUpdate(dialogAction)}
+        confirmText={dialogAction === "Confirmed" ? "Accept" : "Reject"}
+        cancelText="Cancel"
+      />
+
+      {/* Receipt Dialog */}
+      <Dialog
+        open={receiptDialogOpen}
+        onClose={() => setReceiptDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
       >
-        <Box
-          sx={{
-            position: "relative",
-            maxWidth: "90vw",
-            maxHeight: "90vh",
-            backgroundColor: "white",
-            borderRadius: 2,
-            p: 1,
-            boxShadow: 24,
-          }}
-        >
-          <IconButton
-            onClick={handleCloseModal}
-            sx={{
-              position: "absolute",
-              top: 8,
-              right: 8,
-              color: "grey.500",
-            }}
-          >
-            <Close />
-          </IconButton>
+        <DialogTitle>Payment Receipt</DialogTitle>
+        <DialogContent sx={{ display: "flex", justifyContent: "center" }}>
           <Box
             component="img"
-            src={modalImage}
+            src={booking?.paymentReceipt} // Use optional chaining just in case
             alt="Payment Receipt"
-            sx={{
-              maxWidth: "100%",
-              maxHeight: "100%",
-              objectFit: "contain",
-            }}
+            sx={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain" }}
           />
-        </Box>
-      </Modal>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReceiptDialogOpen(false)} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

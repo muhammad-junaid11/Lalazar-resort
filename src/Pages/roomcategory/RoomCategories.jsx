@@ -6,7 +6,6 @@ import {
   CardContent,
   Typography,
   Button,
-  CircularProgress,
   IconButton,
   useTheme,
   Grid,
@@ -18,6 +17,7 @@ import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../../FirebaseFireStore/Firebase";
 import { useNavigate, Link } from "react-router-dom";
 import ConfirmDialog from "../../Components/ConfirmDialog";
+import LoadingOverlay from "../../Components/LoadingOverlay";
 
 const RoomCategories = () => {
   const theme = useTheme();
@@ -56,11 +56,14 @@ const RoomCategories = () => {
   };
 
   return (
-    <Box sx={{ flexGrow: 1, mt: 0, mb: 0, py: 1 }}>
+    <Box sx={{ flexGrow: 1, position: "relative" }}>
+      {/* ✅ Loading overlay */}
+      <LoadingOverlay loading={loading} message="Loading categories..." fullScreen={true} />
+
       <Card
         sx={{
-          borderRadius: 2,
-          boxShadow: 2,
+          borderRadius: 3,
+          boxShadow: 3,
           width: "100%",
           backgroundColor: theme.palette.background.paper,
         }}
@@ -84,17 +87,19 @@ const RoomCategories = () => {
               startIcon={<AddIcon />}
               color="primary"
               onClick={() => navigate("/rooms-categories/add")}
-              sx={{ borderRadius: 2, py: 1, px: 2, fontWeight: 600, textTransform: "none" }}
+              sx={{
+                borderRadius: 2,
+                py: 1,
+                px: 2,
+                fontWeight: 600,
+                textTransform: "none",
+              }}
             >
               Add Category
             </Button>
           </Grid>
 
-          {loading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
-              <CircularProgress />
-            </Box>
-          ) : categories.length === 0 ? (
+          {!loading && categories.length === 0 ? (
             <Typography align="center" sx={{ py: 5 }}>
               No categories found.
             </Typography>
